@@ -1,23 +1,23 @@
 module.exports = function (grunt) {
     grunt.initConfig({
-        tslint: {
-            options: {
-                rulesDirectory: 'node_modules/tslint-microsoft-contrib',
-            },
-            files: {
-                src: [
-                    './shared/AppInsightsCommon/**/*.ts',
-                    './extensions/**/*.ts',
-                    './AISKU/**/*.ts',
-                    '!./**/node_modules/**',
-                    '!./**/Tests/**',
-                    '!./**/dist-esm/**',
-                    '!./**/Generated/**',
-                    './legacy/JavaScript/**/*.ts',
-                    '!./legacy/JavaScript/JavaScriptSDK.Tests/**'
-                ],
-            }
-        },
+        // tslint: {
+        //     options: {
+        //         rulesDirectory: 'node_modules/tslint-microsoft-contrib',
+        //     },
+        //     files: {
+        //         src: [
+        //             './shared/AppInsightsCommon/**/*.ts',
+        //             './extensions/**/*.ts',
+        //             './AISKU/**/*.ts',
+        //             '!./**/node_modules/**',
+        //             '!./**/Tests/**',
+        //             '!./**/dist-esm/**',
+        //             '!./**/Generated/**',
+        //             './legacy/JavaScript/**/*.ts',
+        //             '!./legacy/JavaScript/JavaScriptSDK.Tests/**'
+        //         ],
+        //     }
+        // },
         ts: {
             options: {
                 comments: true
@@ -111,10 +111,21 @@ module.exports = function (grunt) {
                 src: './extensions/applicationinsights-properties-js/Tests/**/*.ts',
                 out: './extensions/applicationinsights-properties-js/Tests/Selenium/prop.tests.js'
             },
+            react: {
+                tsconfig: './extensions/applicationinsights-react/tsconfig.json',
+                src: [
+                    './extensions/applicationinsights-react/src/index.ts'
+                ]
+            },
+            reacttests: {
+                tsconfig: './extensions/applicationinsights-react/Tests/tsconfig.json',
+                src: './extensions/applicationinsights-react/Tests/**/*.ts',
+                out: './extensions/applicationinsights-react/Tests/Selenium/reactnativeplugin.tests.js'
+            },
             reactnative: {
                 tsconfig: './extensions/applicationinsights-react-native/tsconfig.json',
                 src: [
-                    './extensions/applicationinsights-react-native/src/index.ts'
+                    './extensions/applicationinsights-react-native/src/**/*.ts'
                 ]
             },
             reactnativetests: {
@@ -363,6 +374,17 @@ module.exports = function (grunt) {
                     '--web-security': 'false'
                 }
             },
+            react: {
+                options: {
+                    urls: [
+                        './extensions/applicationinsights-react-js/Tests/Selenium/Tests.html'
+                    ],
+                    timeout: 5 * 60 * 1000, // 5 min
+                    console: true,
+                    summaryOnly: true,
+                    '--web-security': 'false'
+                }
+            },
             reactnative: {
                 options: {
                     urls: [
@@ -437,7 +459,7 @@ module.exports = function (grunt) {
     });
 
     grunt.loadNpmTasks("grunt-ts");
-    grunt.loadNpmTasks('grunt-tslint');
+    // grunt.loadNpmTasks('grunt-tslint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-contrib-qunit');
     grunt.loadNpmTasks('grunt-run');
@@ -457,8 +479,10 @@ module.exports = function (grunt) {
     grunt.registerTask("commontest", ["ts:common", "ts:commontest", "qunit:common"]);
     grunt.registerTask("properties", ["ts:properties"]);
     grunt.registerTask("propertiestests", ["ts:propertiestests", "qunit:properties"]);
+    grunt.registerTask("react", ["ts:reactnative"]);
+    grunt.registerTask("reacttests", ["qunit:react"]);
     grunt.registerTask("reactnative", ["ts:reactnative"]);
-    grunt.registerTask("reactnativetests", ["qunit:reactnative"]);
+    grunt.registerTask("reactnativetests", ["ts:reactnativetests", "qunit:reactnative"]);
     grunt.registerTask("deps", ["ts:deps"]);
     grunt.registerTask("depstest", ["ts:depstest", "qunit:deps"]);
     grunt.registerTask("debugplugin", ["ts:debugplugin"]);

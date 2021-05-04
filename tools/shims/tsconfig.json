@@ -9,6 +9,7 @@
       "forceConsistentCasingInFileNames": true,
       "importHelpers": false,
       "noEmitHelpers": true,
+      "skipLibCheck": true,
       "alwaysStrict": true,
       "declaration": true,
       "declarationDir": "tools/shims/types",

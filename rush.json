@@ -2,8 +2,8 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/rush.schema.json",
 
-  "npmVersion": "7.10.0",
-  "rushVersion": "5.44.0",
+  "npmVersion": "7.11.2",
+  "rushVersion": "5.45.6",
   "projectFolderMaxDepth": 4,
   "projects": [
     {
@@ -59,6 +59,16 @@
     {
       "packageName": "@microsoft/applicationinsights-clickanalytics-js",
       "projectFolder": "extensions/applicationinsights-clickanalytics-js",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@microsoft/applicationinsights-react-js",
+      "projectFolder": "extensions/applicationinsights-react-js",
+      "shouldPublish": true
+    },
+    {
+      "packageName": "@microsoft/applicationinsights-react-native",
+      "projectFolder": "extensions/applicationinsights-react-native",
       "shouldPublish": true
     },
     {
