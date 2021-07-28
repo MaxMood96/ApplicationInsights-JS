@@ -28,7 +28,7 @@
     "@angular/router": "~11.0.6",
     "rxjs": "~6.6.0",
     "tslib": "^2.0.0",
-    "zone.js": "~0.10.2",
+    "zone.js": "~0.11.4",
     "@microsoft/applicationinsights-core-js": "2.5.11",
     "@microsoft/applicationinsights-common": "2.5.11"
   },
