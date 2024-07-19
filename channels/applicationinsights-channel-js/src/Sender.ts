@@ -2,14 +2,14 @@ import dynamicProto from "@microsoft/dynamicproto-js";
 import {
     BreezeChannelIdentifier, DEFAULT_BREEZE_ENDPOINT, DEFAULT_BREEZE_PATH, DisabledPropertyName, Event, Exception, IChannelControlsAI,
     IConfig, IEnvelope, ISample, Metric, PageView, PageViewPerformance, ProcessLegacy, RemoteDependencyData, RequestHeaders, SampleRate,
-    Trace, eRequestHeaders, isInternalApplicationInsightsEndpoint, utlCanUseSessionStorage
+    Trace, eRequestHeaders, isInternalApplicationInsightsEndpoint, utlCanUseSessionStorage, utlSetStoragePrefix
 } from "@microsoft/applicationinsights-common";
 import {
     BaseTelemetryPlugin, IAppInsightsCore, IConfiguration, IDiagnosticLogger, INotificationManager, IPlugin, IProcessTelemetryContext,
     IProcessTelemetryUnloadContext, ITelemetryItem, ITelemetryPluginChain, ITelemetryUnloadState, SendRequestReason, _eInternalMessageId,
-    _throwInternal, _warnToConsole, arrForEach, createUniqueNamespace, dateNow, dumpObj, eLoggingSeverity, getExceptionName, getIEVersion,
-    getJSON, getNavigator, getWindow, isArray, isBeaconsSupported, isFetchSupported, isNullOrUndefined, isXhrSupported, mergeEvtNamespace,
-    objForEachKey, objKeys, useXDomainRequest
+    _throwInternal, _warnToConsole, arrForEach, arrIndexOf, createUniqueNamespace, dateNow, dumpObj, eLoggingSeverity, getExceptionName,
+    getIEVersion, getJSON, getNavigator, getWindow, isArray, isBeaconsSupported, isFetchSupported, isNullOrUndefined, isXhrSupported,
+    mergeEvtNamespace, objForEachKey, objKeys, useXDomainRequest
 } from "@microsoft/applicationinsights-core-js";
 import {
     DependencyEnvelopeCreator, EventEnvelopeCreator, ExceptionEnvelopeCreator, MetricEnvelopeCreator, PageViewEnvelopeCreator,
@@ -52,6 +52,7 @@ function _getDefaultAppInsightsChannelConfig(): ISenderConfig {
         maxBatchSizeInBytes: () => 102400,  // 100kb
         disableTelemetry: () => false,
         enableSessionStorageBuffer: () => true,
+        bufferOverride: () => false,
         isRetryDisabled: () => false,
         isBeaconApiDisabled: () => true,
         disableXhr: () => false,
@@ -62,7 +63,8 @@ function _getDefaultAppInsightsChannelConfig(): ISenderConfig {
         samplingPercentage: () => 100,
         customHeaders: () => defaultCustomHeaders,
         convertUndefined: () => defaultValue,
-        eventsLimitInMem: () => 10000
+        eventsLimitInMem: () => 10000,
+        retryCodes: () => null
     }
 }
 
@@ -139,6 +141,7 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
         let _syncUnloadSender: SenderFunction;  // The identified sender to use for the synchronous unload stage
         let _offlineListener: IOfflineListener;
         let _evtNamespace: string | string[];
+        let _retryCodes: number[];
 
         dynamicProto(Sender, this, (_self, _base) => {
 
@@ -230,9 +233,18 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
                         return theValue;
                     }
                 });
+
+                _retryCodes = _self._senderConfig.retryCodes();
+
+                if (config.storagePrefix){
+                    utlSetStoragePrefix(config.storagePrefix);
+                }
         
-                _self._buffer = (_self._senderConfig.enableSessionStorageBuffer() && utlCanUseSessionStorage())
-                    ? new SessionStorageSendBuffer(diagLog, _self._senderConfig) : new ArraySendBuffer(diagLog, _self._senderConfig);
+                const useSessionStorage = _self._senderConfig.enableSessionStorageBuffer() &&
+                    !!(_self._senderConfig.bufferOverride() || utlCanUseSessionStorage())
+                _self._buffer = useSessionStorage
+                    ? new SessionStorageSendBuffer(diagLog, _self._senderConfig)
+                    : new ArraySendBuffer(diagLog, _self._senderConfig);
                 _self._sample = new Sample(_self._senderConfig.samplingPercentage(), diagLog);
                 
                 if(!_validateInstrumentationKey(config)) {
@@ -370,7 +382,9 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
                     const bufferSize = buffer.size();
         
                     if ((bufferSize + payload.length) > _self._senderConfig.maxBatchSizeInBytes()) {
-                        _self.triggerSend(true, null, SendRequestReason.MaxBatchSize);
+                        if (!_offlineListener || _offlineListener.isOnline()) { // only trigger send when currently online
+                            _self.triggerSend(true, null, SendRequestReason.MaxBatchSize);
+                        }
                     }
         
                     // enqueue the payload
@@ -420,7 +434,7 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
             
                                 // invoke send
                                 if (forcedSender) {
-                                    forcedSender.call(this, payload, async);
+                                    forcedSender.call(_self, payload, async);
                                 } else {
                                     _self._sender(payload, async);
                                 }
@@ -463,7 +477,7 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
                     "Failed to send telemetry.",
                     { message });
         
-                _self._buffer.clearSent(payload);
+                _self._buffer && _self._buffer.clearSent(payload);
             };
         
             /**
@@ -508,7 +522,7 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
              * success handler
              */
             _self._onSuccess = (payload: string[], countOfItemsInPayload: number) => {
-                _self._buffer.clearSent(payload);
+                _self._buffer && _self._buffer.clearSent(payload);
             };
         
             /**
@@ -936,8 +950,14 @@ export class Sender extends BaseTelemetryPlugin implements IChannelControlsAI {
              * @param statusCode
              */
             function _isRetriable(statusCode: number): boolean {
+                // retryCodes = [] means should not retry
+                if (!isNullOrUndefined(_retryCodes)) {
+                    return _retryCodes.length && arrIndexOf(_retryCodes, statusCode) > -1;
+                }
+
                 return statusCode === 401 // Unauthorized
-                    || statusCode === 403 // Forbidden
+                    // Removing as private links can return a 403 which causes excessive retries and session storage usage
+                    //|| statusCode === 403 // Forbidden
                     || statusCode === 408 // Timeout
                     || statusCode === 429 // Too many requests.
                     || statusCode === 500 // Internal server error.

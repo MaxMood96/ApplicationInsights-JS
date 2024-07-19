@@ -1,5 +1,6 @@
 ﻿import { SinonStub } from "sinon";
 import { Assert, AITestClass, PollingAssert } from "@microsoft/ai-test-framework";
+import { createSyncPromise } from "@nevware21/ts-async";
 import { AjaxMonitor } from "../../../src/ajax";
 import { DisabledPropertyName, IConfig, DistributedTracingModes, RequestHeaders, IDependencyTelemetry, IRequestContext, formatTraceParent, createTraceParent } from "@microsoft/applicationinsights-common";
 import {
@@ -7,7 +8,9 @@ import {
     getPerformance, getGlobalInst, getGlobal, generateW3CId, arrForEach
 } from "@microsoft/applicationinsights-core-js";
 import { IDependencyListenerDetails } from "../../../src/DependencyListener";
-import { FakeXMLHttpRequest } from "@microsoft/ai-test-framework/dist-esm/src/AITestClass";
+import { FakeXMLHttpRequest } from "@microsoft/ai-test-framework";
+
+const AJAX_DATA_CONTAINER = "_ajaxData";
 
 interface IFetchArgs {
     input: RequestInfo,
@@ -22,7 +25,7 @@ function hookFetch<T>(executor: (resolve: (value?: T | PromiseLike<T>) => void, 
             input,
             init
         });
-        return new window["SimpleSyncPromise"](executor);
+        return createSyncPromise(executor);
     }
 
     return calls;
@@ -163,14 +166,16 @@ export class AjaxTests extends AITestClass {
                 let appInsightsCore = new AppInsightsCore();
                 let coreConfig = { instrumentationKey: "instrumentationKey", extensionConfig: {"AjaxPlugin": {}}};
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 // act
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.ok((<any>xhr).ajaxData)
-                var ajaxData = (<any>xhr).ajaxData;
+                Assert.ok((<any>xhr)[AJAX_DATA_CONTAINER])
+                Assert.ok((<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId])
+                var ajaxData = (<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId];
                 Assert.equal("http://microsoft.com", ajaxData.requestUrl, "RequestUrl is collected correctly");
             }
         });
@@ -182,6 +187,7 @@ export class AjaxTests extends AITestClass {
                 let appInsightsCore = new AppInsightsCore();
                 let coreConfig: IConfiguration & IConfig = { instrumentationKey: "", disableAjaxTracking: false };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 // act
                 var xhr = new XMLHttpRequest();
@@ -189,7 +195,7 @@ export class AjaxTests extends AITestClass {
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "RequestUrl is collected correctly");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "RequestUrl is collected correctly");
             }
         });
 
@@ -213,6 +219,7 @@ export class AjaxTests extends AITestClass {
                 let appInsightsCore = new AppInsightsCore();
                 let coreConfig: IConfiguration & IConfig = { instrumentationKey: "", disableAjaxTracking: false };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 arrForEach(endpointUrls, (endpointUrl) => {
                     // act
@@ -220,7 +227,7 @@ export class AjaxTests extends AITestClass {
                     xhr.open("GET", endpointUrl);
 
                     // assert
-                    Assert.equal(undefined, (<any>xhr).ajaxData, "RequestUrl is collected correctly");
+                    Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "RequestUrl is collected correctly");
                 });
             }
         });
@@ -250,6 +257,7 @@ export class AjaxTests extends AITestClass {
                     addIntEndpoints: false
                 };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 arrForEach(endpointUrls, (endpointUrl) => {
                     // act
@@ -257,7 +265,9 @@ export class AjaxTests extends AITestClass {
                     xhr.open("GET", endpointUrl);
 
                     // assert
-                    var ajaxData = (<any>xhr).ajaxData;
+                    Assert.ok((<any>xhr)[AJAX_DATA_CONTAINER], "Ajax Container created");
+
+                    var ajaxData = (<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId];
                     Assert.equal(endpointUrl, ajaxData.requestUrl, "RequestUrl is collected correctly");
                 });
             }
@@ -281,6 +291,8 @@ export class AjaxTests extends AITestClass {
                     addIntEndpoints: false
                 };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
+
                 let trackSpy = this.sandbox.spy(appInsightsCore, "track")
 
                 Assert.equal(0, trackSpy.callCount, "Track has not been called");
@@ -289,7 +301,7 @@ export class AjaxTests extends AITestClass {
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", "http://microsoft.com");
 
-                var ajaxData = (<any>xhr).ajaxData;
+                var ajaxData = (<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId];
                 Assert.equal("http://microsoft.com", ajaxData.requestUrl, "RequestUrl is collected correctly");
 
                 xhr.send();
@@ -300,7 +312,8 @@ export class AjaxTests extends AITestClass {
                 Assert.ok(initializerCalled, "Initializer was not called");
 
                 // assert
-                Assert.ok(!(<any>xhr).ajaxData, "The ajax data should have been removed");
+                Assert.ok((<any>xhr)[AJAX_DATA_CONTAINER], "The ajax data container should still exist");
+                Assert.ok(!(<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId], "The ajax data should have been removed");
                 Assert.equal(1, trackSpy.callCount, "Track has been called");
                 Assert.equal(true, trackSpy.args[0][0].baseData.properties.initializer.called, "The value set in the initializer was added");
             }
@@ -323,6 +336,8 @@ export class AjaxTests extends AITestClass {
                     addIntEndpoints: false
                 };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
+
                 let trackSpy = this.sandbox.spy(appInsightsCore, "track")
 
                 Assert.equal(0, trackSpy.callCount, "Track has not been called");
@@ -331,7 +346,7 @@ export class AjaxTests extends AITestClass {
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", "http://microsoft.com");
 
-                var ajaxData = (<any>xhr).ajaxData;
+                var ajaxData = (<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId];
                 Assert.equal("http://microsoft.com", ajaxData.requestUrl, "RequestUrl is collected correctly");
 
                 xhr.send();
@@ -342,7 +357,8 @@ export class AjaxTests extends AITestClass {
                 Assert.ok(initializerCalled, "Initializer was not called");
 
                 // assert
-                Assert.ok(!(<any>xhr).ajaxData, "The ajax data should have been removed");
+                Assert.ok((<any>xhr)[AJAX_DATA_CONTAINER], "The ajax data container should still exist");
+                Assert.ok(!(<any>xhr)[AJAX_DATA_CONTAINER].i[ajaxDataId], "The ajax data should have been removed");
                 Assert.equal(0, trackSpy.callCount, "Track has not been called");
             }
         });
@@ -354,6 +370,7 @@ export class AjaxTests extends AITestClass {
                 let appInsightsCore = new AppInsightsCore();
                 let coreConfig: IConfiguration & IConfig = { instrumentationKey: "", disableAjaxTracking: false };
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 // act
                 var xhr = new XMLHttpRequest();
@@ -361,19 +378,19 @@ export class AjaxTests extends AITestClass {
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "RequestUrl is collected correctly");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "RequestUrl is collected correctly");
 
                 xhr = new XMLHttpRequest();
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "Follow up GET Request was not instrumented");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up GET Request was not instrumented");
 
                 xhr = new XMLHttpRequest();
                 xhr.open("POST", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "Follow up POST Request was not instrumented");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up POST Request was not instrumented");
             }
         });
 
@@ -391,19 +408,49 @@ export class AjaxTests extends AITestClass {
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "RequestUrl is collected correctly");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "RequestUrl is collected correctly");
 
                 xhr = new XMLHttpRequest();
                 xhr.open("GET", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "Follow up GET Request was not instrumented");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up GET Request was not instrumented");
 
                 xhr = new XMLHttpRequest();
                 xhr.open("POST", "http://microsoft.com");
 
                 // assert
-                Assert.equal(undefined, (<any>xhr).ajaxData, "Follow up POST Request was not instrumented");
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up POST Request was not instrumented");
+            }
+        });
+
+        this.testCase({
+            name: "Ajax: xhr without disabled flag but with sealed exclude regex configured are not tracked",
+            test: () => {
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                const ExcludeRequestRegex = [Object.freeze(/microsoft/i), Object.seal(/microsoft/i) ];
+                let coreConfig: IConfiguration & IConfig = { instrumentationKey: "", disableAjaxTracking: true, excludeRequestFromAutoTrackingPatterns: ExcludeRequestRegex };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+
+                // act
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+
+                // assert
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "RequestUrl is collected correctly");
+
+                xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+
+                // assert
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up GET Request was not instrumented");
+
+                xhr = new XMLHttpRequest();
+                xhr.open("POST", "http://microsoft.com");
+
+                // assert
+                Assert.equal(undefined, (<any>xhr)[AJAX_DATA_CONTAINER], "Follow up POST Request was not instrumented");
             }
         });
 
@@ -641,6 +688,7 @@ export class AjaxTests extends AITestClass {
                 data = trackStub.args[1][0].baseData;
                 Assert.equal("Ajax", data.type, "request is Ajax type");
                 Assert.equal(undefined, data.properties.responseText, "xhr request's reponse error is not stored in part C");
+                Assert.equal(undefined, data.properties.aborted, "The aborted flag should not be set");
             }
         });
 
@@ -683,6 +731,116 @@ export class AjaxTests extends AITestClass {
                 data = trackStub.args[1][0].baseData;
                 Assert.equal("Ajax", data.type, "request is Ajax type");
                 Assert.equal(undefined, data.properties.responseText, "xhr request's reponse error is not stored in part C");
+            }
+        });
+
+        this.testCase({
+            name: "Ajax: xhr abort is tracked as part C data when enableAjaxErrorStatusText flag is true",
+            test: () => {
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig: IConfiguration & IConfig = { instrumentationKey: "abc", disableAjaxTracking: false, enableAjaxErrorStatusText: true };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+
+                var trackStub = this.sandbox.stub(appInsightsCore, "track");
+
+                // act
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+                xhr.send();
+
+                xhr.abort();
+
+                // assert
+                Assert.ok(trackStub.calledOnce, "track is called");
+                let data = trackStub.args[0][0].baseData;
+                Assert.equal("Ajax", data.type, "request is Ajax type");
+                Assert.equal(0, data.responseCode, "Check the response code");
+                Assert.equal(true, data.properties.aborted, "The aborted flag should be set");
+                Assert.notEqual(undefined, data.properties.responseText, "xhr request's reponse error is stored in part C");
+                Assert.strictEqual("", data.properties.responseText, "Check the status Text");
+            }
+        });
+        
+        this.testCase({
+            name: "Ajax: xhr abort is tracked as part C data when enableAjaxErrorStatusText flag is false",
+            test: () => {
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig: IConfiguration & IConfig = { instrumentationKey: "abc", disableAjaxTracking: false, enableAjaxErrorStatusText: false };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+
+                var trackStub = this.sandbox.stub(appInsightsCore, "track");
+
+                // act
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+                xhr.send();
+
+                xhr.abort();
+
+                // assert
+                Assert.ok(trackStub.calledOnce, "track is called");
+                let data = trackStub.args[0][0].baseData;
+                Assert.equal("Ajax", data.type, "request is Ajax type");
+                Assert.equal(0, data.responseCode, "Check the response code");
+                Assert.equal(true, data.properties.aborted, "The aborted flag should be set");
+                Assert.equal(undefined, data.properties.responseText, "xhr request's reponse error is stored in part C");
+            }
+        });
+        
+        this.testCase({
+            name: "Ajax: xhr respond with status code zero is tracked as part C data when enableAjaxErrorStatusText flag is true",
+            test: () => {
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig: IConfiguration & IConfig = { instrumentationKey: "abc", disableAjaxTracking: false, enableAjaxErrorStatusText: true };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+
+                var trackStub = this.sandbox.stub(appInsightsCore, "track");
+
+                // act
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+                xhr.send();
+
+                (<any>xhr).respond(0);
+
+                // assert
+                Assert.ok(trackStub.calledOnce, "track is called");
+                let data = trackStub.args[0][0].baseData;
+                Assert.equal("Ajax", data.type, "request is Ajax type");
+                Assert.equal(0, data.responseCode, "Check the response code");
+                Assert.equal(undefined, data.properties.aborted, "The aborted flag should be set");
+                Assert.notEqual(undefined, data.properties.responseText, "xhr request's reponse error is stored in part C");
+                Assert.strictEqual("", data.properties.responseText, "Check the status Text");
+            }
+        });
+        
+        this.testCase({
+            name: "Ajax: xhr respond with status code zero is tracked as part C data when enableAjaxErrorStatusText flag is false",
+            test: () => {
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig: IConfiguration & IConfig = { instrumentationKey: "abc", disableAjaxTracking: false, enableAjaxErrorStatusText: false };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+
+                var trackStub = this.sandbox.stub(appInsightsCore, "track");
+
+                // act
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "http://microsoft.com");
+                xhr.send();
+
+                (<any>xhr).respond(0);
+
+                // assert
+                Assert.ok(trackStub.calledOnce, "track is called");
+                let data = trackStub.args[0][0].baseData;
+                Assert.equal("Ajax", data.type, "request is Ajax type");
+                Assert.equal(0, data.responseCode, "Check the response code");
+                Assert.equal(undefined, data.properties.aborted, "The aborted flag should be set");
+                Assert.equal(undefined, data.properties.responseText, "xhr request's reponse error is stored in part C");
             }
         });
 
@@ -1043,6 +1201,108 @@ export class AjaxTests extends AITestClass {
         });
 
         this.testCaseAsync({
+            name: "Fetch: Respond with status 0 and no status text",
+            stepDelay: 10,
+            autoComplete: false,
+            timeOut: 10000,
+            steps: [ (testContext) => {
+                hookFetch((resolve) => {
+                    AITestClass.orgSetTimeout(function() {
+                        resolve({
+                            headers: new Headers(),
+                            ok: true,
+                            body: null,
+                            bodyUsed: false,
+                            redirected: false,
+                            status: 0,
+                            statusText: "Blocked",
+                            trailer: null,
+                            type: "basic",
+                            url: "https://httpbin.org/status/200"
+                        });
+                    }, 0);
+                });
+
+                this._ajax = new AjaxMonitor();
+                let dependencyFields = hookTrackDependencyInternal(this._ajax);
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig = { instrumentationKey: "", disableFetchTracking: false };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let fetchSpy = this.sandbox.spy(appInsightsCore, "track")
+                let throwSpy = this.sandbox.spy(appInsightsCore.logger, "throwInternal");
+
+                // Act
+                Assert.ok(fetchSpy.notCalled, "No fetch called yet");
+                fetch("https://httpbin.org/status/200", {method: "post", [DisabledPropertyName]: false}).then(() => {
+                    // Assert
+                    Assert.ok(fetchSpy.calledOnce, "createFetchRecord called once after using fetch");
+                    let data = fetchSpy.args[0][0].baseData;
+                    Assert.equal("Fetch", data.type, "request is Fetch type");
+                    Assert.ok(throwSpy.notCalled, "Make sure we didn't fail internally");
+                    Assert.equal(1, dependencyFields.length, "trackDependencyDataInternal was called");
+                    Assert.ok(dependencyFields[0].dependency.startTime, "startTime was specified before trackDependencyDataInternal was called");
+                    Assert.equal(0, dependencyFields[0].dependency.responseCode, "Check the response code");
+                    Assert.equal(undefined, dependencyFields[0].dependency.properties.responseText);
+                    testContext.testDone();
+                }, () => {
+                    Assert.ok(false, "fetch failed!");
+                    testContext.testDone();
+                });
+            }]
+        });
+
+        this.testCaseAsync({
+            name: "Fetch: Respond with status 0 and no status text",
+            stepDelay: 10,
+            autoComplete: false,
+            timeOut: 10000,
+            steps: [ (testContext) => {
+                hookFetch((resolve) => {
+                    AITestClass.orgSetTimeout(function() {
+                        resolve({
+                            headers: new Headers(),
+                            ok: true,
+                            body: null,
+                            bodyUsed: false,
+                            redirected: false,
+                            status: 0,
+                            statusText: "Blocked",
+                            trailer: null,
+                            type: "basic",
+                            url: "https://httpbin.org/status/200"
+                        });
+                    }, 0);
+                });
+
+                this._ajax = new AjaxMonitor();
+                let dependencyFields = hookTrackDependencyInternal(this._ajax);
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig = { instrumentationKey: "", disableFetchTracking: false, enableAjaxErrorStatusText: true };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let fetchSpy = this.sandbox.spy(appInsightsCore, "track")
+                let throwSpy = this.sandbox.spy(appInsightsCore.logger, "throwInternal");
+
+                // Act
+                Assert.ok(fetchSpy.notCalled, "No fetch called yet");
+                fetch("https://httpbin.org/status/200", {method: "post", [DisabledPropertyName]: false}).then(() => {
+                    // Assert
+                    Assert.ok(fetchSpy.calledOnce, "createFetchRecord called once after using fetch");
+                    let data = fetchSpy.args[0][0].baseData;
+                    Assert.equal("Fetch", data.type, "request is Fetch type");
+                    Assert.ok(throwSpy.notCalled, "Make sure we didn't fail internally");
+                    Assert.equal(1, dependencyFields.length, "trackDependencyDataInternal was called");
+                    Assert.ok(dependencyFields[0].dependency.startTime, "startTime was specified before trackDependencyDataInternal was called");
+                    Assert.equal(0, dependencyFields[0].dependency.responseCode, "Check the response code");
+                    Assert.equal("Blocked", dependencyFields[0].dependency!.properties.responseText);
+                    testContext.testDone();
+                }, () => {
+                    Assert.ok(false, "fetch failed!");
+                    testContext.testDone();
+                });
+            }]
+        });
+
+        this.testCaseAsync({
             name: "Fetch: fetch addDependencyInitializer adding context",
             stepDelay: 10,
             autoComplete: false,
@@ -1282,7 +1542,124 @@ export class AjaxTests extends AITestClass {
             }]
         });
 
+        this.testCaseAsync({
+            name: "Fetch: instrumentation handles empty string",
+            stepDelay: 10,
+            autoComplete: false,
+            timeOut: 10000,
+            steps: [ (testContext) => {
+                let fetchCalls = hookFetch((resolve) => {
+                    AITestClass.orgSetTimeout(function() {
+                        resolve({
+                            headers: new Headers(),
+                            ok: true,
+                            body: null,
+                            bodyUsed: false,
+                            redirected: false,
+                            status: 200,
+                            statusText: "Hello",
+                            trailer: null,
+                            type: "basic",
+                            url: "https://httpbin.org/status/200"
+                        });
+                    }, 0);
+                });
 
+                this._ajax = new AjaxMonitor();
+                let dependencyFields = hookTrackDependencyInternal(this._ajax);
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig = { instrumentationKey: "", disableFetchTracking: false };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let fetchSpy = this.sandbox.spy(appInsightsCore, "track")
+                let throwSpy = this.sandbox.spy(appInsightsCore.logger, "throwInternal");
+
+                // Act
+                Assert.ok(fetchSpy.notCalled, "No fetch called yet");
+                fetch("", {method: "post", [DisabledPropertyName]: false}).then(() => {
+                    // Assert
+                    Assert.ok(fetchSpy.calledOnce, "createFetchRecord called once after using fetch");
+                    let data = fetchSpy.args[0][0].baseData;
+                    Assert.equal("Fetch", data.type, "request is Fetch type");
+                    Assert.equal(false, throwSpy.called, "We should not have failed internally");
+                    Assert.equal(1, dependencyFields.length, "trackDependencyDataInternal was called");
+                    Assert.ok(dependencyFields[0].dependency.startTime, "startTime was specified before trackDependencyDataInternal was called");
+                    Assert.equal(undefined, dependencyFields[0].sysProperties, "no system properties");
+
+                    // Assert that the HTTP method was preserved
+                    Assert.equal(1, fetchCalls.length);
+                    Assert.notEqual(undefined, fetchCalls[0].init, "Has init param");
+                    Assert.equal("post", fetchCalls[0].init?.method, "Has post method");
+
+                    testContext.testDone();
+                }, () => {
+                    Assert.ok(false, "fetch failed!");
+                    testContext.testDone();
+                });
+            }]
+        });
+
+        this.testCaseAsync({
+            name: "Fetch: instrumentation handles empty string with traceId",
+            stepDelay: 10,
+            autoComplete: false,
+            timeOut: 10000,
+            steps: [ (testContext) => {
+                let fetchCalls = hookFetch((resolve) => {
+                    AITestClass.orgSetTimeout(function() {
+                        resolve({
+                            headers: new Headers(),
+                            ok: true,
+                            body: null,
+                            bodyUsed: false,
+                            redirected: false,
+                            status: 200,
+                            statusText: "Hello",
+                            trailer: null,
+                            type: "basic",
+                            url: "https://httpbin.org/status/200"
+                        });
+                    }, 0);
+                });
+
+                this._ajax = new AjaxMonitor();
+                let dependencyFields = hookTrackDependencyInternal(this._ajax);
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig = { instrumentationKey: "", disableFetchTracking: false };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let fetchSpy = this.sandbox.spy(appInsightsCore, "track")
+                let throwSpy = this.sandbox.spy(appInsightsCore.logger, "throwInternal");
+                let traceCtx = appInsightsCore.getTraceCtx();
+                let expectedTraceId = generateW3CId();
+                let expectedSpanId = generateW3CId().substring(0, 16);
+                traceCtx!.setTraceId(expectedTraceId);
+                traceCtx!.setSpanId(expectedSpanId);
+
+                // Act
+                Assert.ok(fetchSpy.notCalled, "No fetch called yet");
+                fetch("", {method: "post", [DisabledPropertyName]: false}).then(() => {
+                    // Assert
+                    Assert.ok(fetchSpy.calledOnce, "createFetchRecord called once after using fetch");
+                    let data = fetchSpy.args[0][0].baseData;
+                    Assert.equal("Fetch", data.type, "request is Fetch type");
+                    Assert.equal(false, throwSpy.called, "We should not have failed internally");
+                    Assert.equal(1, dependencyFields.length, "trackDependencyDataInternal was called");
+                    Assert.ok(dependencyFields[0].dependency.startTime, "startTime was specified before trackDependencyDataInternal was called");
+                    Assert.equal(expectedTraceId, dependencyFields[0].sysProperties!.trace.traceID, "system properties traceId");
+                    Assert.equal(expectedSpanId, dependencyFields[0].sysProperties!.trace.parentID, "system properties spanId");
+
+                    // Assert that the HTTP method was preserved
+                    Assert.equal(1, fetchCalls.length);
+                    Assert.notEqual(undefined, fetchCalls[0].init, "Has init param");
+                    Assert.equal("post", fetchCalls[0].init?.method, "Has post method");
+
+                    testContext.testDone();
+                }, () => {
+                    Assert.ok(false, "fetch failed!");
+                    testContext.testDone();
+                });
+            }]
+        });
+        
         this.testCase({
             name: "Fetch: fetch keeps custom headers",
             test: () => {
@@ -2155,7 +2532,7 @@ export class AjaxTests extends AITestClass {
         });
 
         this.testCase({
-            name: "Ajax: 2nd invokation of xhr.send doesn't cause send wrapper to execute 2nd time",
+            name: "Ajax: 2nd invocation of xhr.send doesn't cause send wrapper to execute 2nd time",
             test: () => {
                 this._ajax = new AjaxMonitor();
                 let appInsightsCore = new AppInsightsCore();
@@ -2183,7 +2560,7 @@ export class AjaxTests extends AITestClass {
         });
 
         this.testCase({
-            name: "Ajax: 2nd invokation of xhr.send doesn't cause send wrapper to execute 2nd time even if after response",
+            name: "Ajax: 2nd invocation of xhr.send doesn't cause send wrapper to execute 2nd time even if after response",
             test: () => {
                 this._ajax = new AjaxMonitor();
                 let appInsightsCore = new AppInsightsCore();
@@ -2211,27 +2588,28 @@ export class AjaxTests extends AITestClass {
         });
 
         this.testCase({
-            name: "Ajax: 2 invokation of xhr.open() doesn't cause send wrapper to execute 2nd time",
+            name: "Ajax: 2 invocation of xhr.open() doesn't cause send wrapper to execute 2nd time",
             test: () => {
                 this._ajax = new AjaxMonitor();
                 let appInsightsCore = new AppInsightsCore();
                 let coreConfig = { instrumentationKey: "instrumentationKey", extensionConfig: {"AjaxPlugin": {}}};
                 appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                let ajaxDataId = (this._ajax as any)._ajaxDataId;
 
                 // Act
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", "example.com/bla");
 
-
-                Assert.equal("GET", xhr["ajaxData"].method, "Expecting the ajax data set the method");
+                Assert.ok(xhr[AJAX_DATA_CONTAINER], "Expecting the ajax data set the method");
+                Assert.equal("GET", xhr[AJAX_DATA_CONTAINER].i[ajaxDataId].method, "Expecting the ajax data set the method");
                 // Reset the method to something else
-                xhr["ajaxData"].method = "TEST";
+                xhr[AJAX_DATA_CONTAINER].i[ajaxDataId].method = "TEST";
 
                 try {
                     xhr.open("GET", "example.com/bla");
                 } catch (e) { }
 
-                Assert.equal("TEST", xhr["ajaxData"].method, "sendPrefixInstrumentor should be called only once");
+                Assert.equal("TEST", xhr[AJAX_DATA_CONTAINER].i[ajaxDataId].method, "sendPrefixInstrumentor should be called only once");
             }
         });
 
@@ -2270,6 +2648,85 @@ export class AjaxTests extends AITestClass {
                 var id = trackStub.args[0][0].baseData.id;
                 Assert.equal("|", id[0]);
                 Assert.equal(".", id[id.length - 1]);
+            }
+        });
+
+        this.testCase({
+            name: "Ajax: should create and pass a single traceparent header if w3c is enabled with multiple instances",
+            test: () => {
+                // Switch back to the "real" XMLHttpRequest so that the instrumentation hooks work
+                this.useFakeServer = false;
+                let _ajax2 = new AjaxMonitor();
+                let appInsightsFirst = new AppInsightsCore();
+                let coreConfig2 = {
+                    instrumentationKey: "instrumentationKey",
+                    extensionConfig: {
+                        "AjaxDependencyPlugin": {
+                            appId: "appId",
+                            distributedTracingMode: DistributedTracingModes.AI_AND_W3C
+                        }
+                    }
+                };
+                appInsightsFirst.initialize(coreConfig2, [_ajax2, new TestChannelPlugin()]);
+                appInsightsFirst.getTraceCtx(true)?.setTraceId(generateW3CId());
+                appInsightsFirst.getTraceCtx(true)?.setSpanId(generateW3CId().substr(0, 16));
+                let firstTraceId = appInsightsFirst.getTraceCtx()?.getTraceId();
+                let firstSpanId = appInsightsFirst.getTraceCtx()?.getSpanId();
+
+                const firstExpectedTraceParent = formatTraceParent(createTraceParent(firstTraceId, firstSpanId, 0x01));
+                appInsightsFirst.track({ name: "Test1" });
+                appInsightsFirst.flush(false);
+                this.onDone(() => {
+                    appInsightsFirst.unload(false);
+                });
+
+                // Use test hook to simulate the correct url location
+                _ajax2["_currentWindowHost"] = "www.example.com";
+
+
+                this._ajax = new AjaxMonitor();
+                let appInsightsCore = new AppInsightsCore();
+                let coreConfig = {
+                    instrumentationKey: "instrumentationKey",
+                    extensionConfig: {
+                        "AjaxDependencyPlugin": {
+                            appId: "appId",
+                            distributedTracingMode: DistributedTracingModes.AI_AND_W3C
+                        }
+                    }
+                };
+                appInsightsCore.initialize(coreConfig, [this._ajax, new TestChannelPlugin()]);
+                appInsightsCore.getTraceCtx(true)?.setTraceId(generateW3CId());
+                appInsightsCore.getTraceCtx(true)?.setSpanId(generateW3CId().substr(0, 16));
+                let coreTraceId = appInsightsCore.getTraceCtx()?.getTraceId();
+                let coreSpanId = appInsightsCore.getTraceCtx()?.getSpanId();
+
+                const coreExpectedTraceParent = formatTraceParent(createTraceParent(coreTraceId, coreSpanId, 0x01));
+                appInsightsCore.track({ name: "Test2" });
+                appInsightsCore.flush(false);
+
+                Assert.notEqual(firstTraceId, coreTraceId, "Make sure that the traceId's are different");
+
+                // Use test hook to simulate the correct url location
+                this._ajax["_currentWindowHost"] = "www.example.com";
+
+                // Act
+                var xhr = new XMLHttpRequest();
+                var spy = this.sandbox.spy(xhr, "setRequestHeader");
+                xhr.open("GET", "http://www.example.com");
+                xhr.send();
+
+                // Assert that both headers are sent and that it was only called by the first instances (3 headers one only)
+                Assert.equal(3, spy.callCount, "setRequestHeader called multiple times");
+                Assert.equal(true, spy.calledWith(RequestHeaders.requestIdHeader)); // AI
+                Assert.equal(true, spy.calledWith(RequestHeaders.traceParentHeader)); // W3C
+
+                // Assert that the W3C header is included
+                Assert.equal(RequestHeaders.traceParentHeader, spy.args[2][0], "Validate the actual header sent");
+                Assert.ok(spy.args[2][1].indexOf("00-" + firstTraceId) != -1, "Validate the actual header sent - actual: [" + spy.args[2][1] + "], expected parent [" + firstExpectedTraceParent + "] - alt: " + coreExpectedTraceParent);
+
+                Assert.equal(RequestHeaders.requestIdHeader, spy.args[0][0], "Validate the actual header sent");
+                Assert.ok(spy.args[0][1].indexOf("|" + firstTraceId + ".") != -1, "Validate the actual header sent - actual: [" + spy.args[0][1] + "], expected parent [" + firstExpectedTraceParent + "] - alt: " + coreExpectedTraceParent);
             }
         });
 
@@ -2864,7 +3321,12 @@ export class AjaxPerfTrackTests extends AITestClass {
             .concat(PollingAssert.createPollingAssert(() => {
                 let trackStub = this._context["trackStub"] as SinonStub;
                 if (this._context["fetchComplete"]) {
-                    Assert.ok(trackStub.notCalled, "No fetch called yet");
+                    Assert.ok(trackStub.calledOnce, "track is called");
+                    let data = trackStub.args[0][0].baseData;
+                    Assert.equal("Fetch", data.type, "request is Fetch type");
+                    let props = data.properties;
+                    Assert.notEqual(undefined, props, "Should contain properties");
+                    Assert.equal(undefined, props.ajaxPerf, "No performance data should exist");
                     return true;
                 }
 
@@ -3193,14 +3655,14 @@ export class AjaxFrozenTests extends AITestClass {
                     let message = throwSpy.args[0][2];
                     Assert.notEqual(-1, message.indexOf("Failed to monitor XMLHttpRequest"));
                     let data = throwSpy.args[0][3];
-                    Assert.notEqual(-1, data.exception.indexOf("Cannot add property ajaxData"));
+                    Assert.notEqual(-1, data.exception.indexOf("Cannot add property _ajaxData"));
                     return true;
                 }
 
                 return false;
             }, 'response received', 60, 1000) as any)
         });
-
+        
         // This is currently a manual test as we don't have hooks / mocks defined to automated this today
         // this.testCaseAsync({
         //     name: "AjaxFrozenTests: check frozen prototype",

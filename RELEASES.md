@@ -2,6 +2,103 @@
 
 > Note: ES3/IE8 compatibility will be removed in the future v3.x.x releases (scheduled for mid-late 2022), so if you need to retain ES3 compatibility you will need to remain on the 2.x.x versions of the SDK or your runtime will need install polyfill's to your ES3 environment before loading / initializing the SDK.
 
+## 2.8.17 (Mar 12th, 2024)
+
+### Changelog
+
+- #2296 [BUG] remove 403 as a “retriable” error code
+- #2280 [Master] chore: Add packaging helper script
+
+## 2.8.17 (Feb 6th, 2024)
+
+### Changelog
+
+- #2163 [Master] [BUG] Using App Insights connection string leads to double slash
+- #2260 [Master] Bump @microsoft/dynamicProto-js to ^1.1.11 from ^1.1.9
+  - Addresses a potential prototype pollution issue
+
+## 2.8.16 (Sep 19th, 2023)
+
+### Changelog
+
+- #2155 [Master] Bug [AI/1DS] New minified bundles are corrupting global scope (p1 issue)
+- #2151 Bug 25182794: [AI] Minified CDN version has an extra "use strict" outside of the closure
+- #2120 Missing traceparent header when running multiple SDK instances
+  - #2140 [Master][Bug] Missing traceparent header when running multiple SDK instances #2120
+  - #2143 [Master][Part 2] Missing traceparent header when running multiple SDK instances #2120
+- #2149 [BUG] Fetch with empty string as first parameter ignores second parameter when fetch tracking is enabled
+  - #2154 [Master][BUG] Fetch with empty string as first parameter ignores second parameter when fetch tracking is enabled #2149
+- #2128 [Master] Update publishing config to avoid resetting the "latest" version for older releases
+
+## 2.8.15 (Aug 3rd, 2023)
+
+### Changelog
+
+- #2100 Update UMD and IIFE Bundle intro for Version 2 to avoid conflicting with other SDK versions
+- #2106 [Master] Consider export IClickAnalyticsConfiguration from the click plugin?
+- #2107 [Master][Task]24316375: add support for cfgSync plugin
+- #2086 [BUG] Field 'fileName' on type 'StackFrame' is too long. Expected: 1024 characters
+- #2094 _getVerifiedStorageObject - contentious sessionStorage element
+- #2096 [Master] Create rollup base to unify bundling
+  - #2122 [Master] base rollup fix for version number
+
+## 2.8.14 (May 22nd, 2023)
+
+### Changelog
+
+- #2061 [BUG] hasDocument should be invoked as function
+- #2079 [Master] [BUG] The SDK is not limiting the sdkVersion length, which causes the nightly builds to throw error
+- #2065 [Master] Type 'T' does not satisfy the constraint 'IConfiguration'
+- #2075 [Master] [BUG] ClickAnalytics throwing errors in console
+- #2071 [Master] Update Minify script to always sort imports
+
+## 2.8.13 (May 1st, 2023)
+
+### Changelog
+
+- #2052 [BUG] Typing issue with generated types causing Type X is not assignable to type Y
+- #2055 Add ability to disable the pollInternalLogs via config and change to stop using setInterval
+- #2049 [Master] Fix Perf Tests
+
+## 2.8.12 (Apr 11th, 2023)
+
+### Changelog
+
+- #2014 [BUG] The documentation for enableDebug is incorrect, it should reference enableDebugExceptions
+- #2027 [BUG] SDK LOAD Failure reporting not working
+- #2034 [BUG] Failed XHR request after ever tracked item when gathered logs exceed maxBatchSizeInBytes while offline
+- #2037 [Master] Add local storage-based implementation #1419
+  - Add support for user provided storage option for Sender
+- #2029 [Master] Add npm-pack and npm-publish tasks
+- #2026 [Master] Fix examples, Throttle tests and export dependency types from Sku
+
+## 2.8.11 (Mar 8th, 2023)
+
+### Changelog
+
+- #1996 [BUG] SharedWorker does not Instrument fetch correctly
+- #1995 [BUG] App Insights not auto-capturing from a Web Worker
+  - Stops logging that workers can emit the PageView Performance event
+- #1792 [BUG] Documentation should clarify that node apps should use applicationinsights, not this package
+- #1794 [BUG] link on AISKULight goes to not found page
+- #1990 Field 'assembly' on type 'StackFrame' is too long. Expected: 1024 characters [BUG]
+- Update documentation and tests to replace `instrumentationKey` usage with `connectionString`
+  - #1997 Change Readme
+  - #1999 Add snippet connection string tests
+- #1991 Internal Task 17133116: Add Policheck exclusion file
+- #1989 [AI][Task]17099792: Add sample and doc to dependency plugin
+
+## 2.8.10 (Feb 6th, 2023)
+
+### Changelog
+
+- #1940 [BUG] Application Insights reports 'not_specified' to Azure when tracking unhandled browser exception
+- #1979 [BUG][ThrottleMgr] Incorrectly fires based on the number of days past
+- #1970 Add the Aborted flag to the dependency initializer / listeners
+- #1981 [AI][Task]16961420: fix throttleMgr incorrectly fires based on the number of days past
+- #1956 [AI Light][Task]14130466: Instrumentation key API is being deprecated - need to add support
+- #1962 Add --no-sandbox to test runs
+
 ## 2.8.9 (Oct 25th, 2022)
 
 - Updates Chrome Debug Extension to 0.3.9

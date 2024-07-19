@@ -2,8 +2,9 @@ import { AITestClass } from "@microsoft/ai-test-framework";
 import { Sender } from "../../../src/Sender";
 import { createOfflineListener, IOfflineListener } from '../../../src/Offline';
 import { EnvelopeCreator } from '../../../src/EnvelopeCreator';
-import { Exception, CtxTagKeys, Util, DEFAULT_BREEZE_ENDPOINT, DEFAULT_BREEZE_PATH } from "@microsoft/applicationinsights-common";
+import { Exception, CtxTagKeys, Util, DEFAULT_BREEZE_ENDPOINT, DEFAULT_BREEZE_PATH, utlSetSessionStorage } from "@microsoft/applicationinsights-common";
 import { ITelemetryItem, AppInsightsCore, ITelemetryPlugin, DiagnosticLogger, NotificationManager, SendRequestReason, _InternalMessageId, LoggingSeverity, getGlobalInst, getGlobal } from "@microsoft/applicationinsights-core-js";
+import { ArraySendBuffer, SessionStorageSendBuffer } from "../../../src/SendBuffer";
 
 export class SenderTests extends AITestClass {
     private _sender: Sender;
@@ -22,6 +23,7 @@ export class SenderTests extends AITestClass {
 
         if (this._sender && this._sender.isInitialized()) {
             this._sender.pause();
+            this._sender._buffer.clear();
             this._sender.teardown();
         }
 
@@ -77,6 +79,92 @@ export class SenderTests extends AITestClass {
                 QUnit.assert.equal(DEFAULT_BREEZE_ENDPOINT + DEFAULT_BREEZE_PATH, this._sender._senderConfig.endpointUrl(), 'Channel config can be set from root config (endpointUrl)');
                 QUnit.assert.notEqual(654, this._sender._senderConfig.maxBatchSizeInBytes(), 'Channel config does not equal root config option if extensionConfig field is also set');
                 QUnit.assert.equal(456, this._sender._senderConfig.maxBatchSizeInBytes(), 'Channel config prioritizes extensionConfig over root config');
+            }
+        });
+
+        this.testCase({
+            name: "Channel Config: Session storage can be enabled",
+            test: () => {
+                let setItemSpy = this.sandbox.spy(window.sessionStorage, "setItem");
+                let getItemSpy = this.sandbox.spy(window.sessionStorage, "getItem");
+
+                this._sender.initialize(
+                    {
+                        enableSessionStorageBuffer: true
+                    }, new AppInsightsCore(), []
+                );
+
+                const telemetryItem: ITelemetryItem = {
+                    name: 'fake item',
+                    iKey: 'iKey',
+                    baseType: 'some type',
+                    baseData: {}
+                };
+                this._sender.processTelemetry(telemetryItem, null);
+
+                QUnit.assert.true(this._sender._buffer instanceof SessionStorageSendBuffer, 'Channel config can be set from root config (enableSessionStorageBuffer)');
+                QUnit.assert.equal(false, setItemSpy.calledOnce, "The setItem has not yet been triggered");
+                QUnit.assert.equal(false, getItemSpy.calledOnce, "The getItemSpy has not yet been triggered");
+            }
+        });
+
+        this.testCase({
+            name: "Channel Config: Session storage with buffer override is used",
+            test: () => {
+                let setItemSpy = this.sandbox.stub();
+                let getItemSpy = this.sandbox.stub();
+
+                this._sender.initialize(
+                    {
+                        enableSessionStorageBuffer: true,
+                        bufferOverride: {
+                            getItem: getItemSpy,
+                            setItem: setItemSpy
+                        }
+                    }, new AppInsightsCore(), []
+                );
+
+                const telemetryItem: ITelemetryItem = {
+                    name: 'fake item',
+                    iKey: 'iKey',
+                    baseType: 'some type',
+                    baseData: {}
+                };
+                this._sender.processTelemetry(telemetryItem, null);
+
+                QUnit.assert.true(this._sender._buffer instanceof SessionStorageSendBuffer, 'Channel config can be set from root config (enableSessionStorageBuffer)');
+                QUnit.assert.equal(false, setItemSpy.calledOnce, "The setItem has not yet been triggered");
+                QUnit.assert.equal(false, getItemSpy.calledOnce, "The getItemSpy has not yet been triggered");
+            }
+        });
+
+        this.testCase({
+            name: "Channel Config: Session storage can be disabled",
+            test: () => {
+                this._sender.initialize(
+                    {
+                        enableSessionStorageBuffer: false
+                    }, new AppInsightsCore(), []
+                );
+
+                QUnit.assert.true(this._sender._buffer instanceof ArraySendBuffer, 'Channel config can be set from root config (enableSessionStorageBuffer)');
+            }
+        });
+
+        this.testCase({
+            name: "Channel Config: Session storage ignores buffer override when disabled",
+            test: () => {
+                this._sender.initialize(
+                    {
+                        enableSessionStorageBuffer: false,
+                        bufferOverride: {
+                            getItem: this.sandbox.stub(),
+                            setItem: this.sandbox.stub()
+                        }
+                    }, new AppInsightsCore(), []
+                );
+
+                QUnit.assert.true(this._sender._buffer instanceof ArraySendBuffer, 'Channel config can be set from root config (enableSessionStorageBuffer)');
             }
         });
 
@@ -137,7 +225,32 @@ export class SenderTests extends AITestClass {
                 this.clock.tick(15000);
                 QUnit.assert.equal(true, loggerSpy.calledOnce, "The send has been triggered");
             }
-        })
+        });
+
+        this.testCase({
+            name: "Storage Prefix Test: prefix should be added after init",
+            useFakeTimers: true,
+            test: () => {
+                let core = new AppInsightsCore();
+                let setItemSpy = this.sandbox.spy(window.sessionStorage, "setItem");
+                let storagePrefix = "storageTestPrefix"
+                let coreConfig = {
+                    instrumentationKey: "b7170927-2d1c-44f1-acec-59f4e1751c13ttt",
+                    storagePrefix: storagePrefix,
+                    extensionConfig: {
+                        [this._sender.identifier]: {
+
+                        }
+                    }
+                }
+                let logger = new DiagnosticLogger({instrumentationKey: "abc"});
+                core.logger = logger;
+                core.initialize(coreConfig, [this._sender]);
+                let firstCallArgs = setItemSpy.args[0]; // Arguments of the first call
+                QUnit.assert.true(JSON.stringify(firstCallArgs).includes(storagePrefix));
+                // utlSetSessionStorage(logger, BUFFER_KEY,JSON.stringify([]));
+            }
+        });
 
         this.testCase({
             name: "telemetry is not send when legacy telemetry initializer returns false",
@@ -724,7 +837,7 @@ export class SenderTests extends AITestClass {
                 QUnit.assert.ok(baseData.ver);
                 QUnit.assert.equal(2, baseData.ver);
 
-                QUnit.assert.equal("javascript:2.8.9", appInsightsEnvelope.tags["ai.internal.sdkVersion"]);
+                QUnit.assert.equal("javascript:2.8.18", appInsightsEnvelope.tags["ai.internal.sdkVersion"]);
             }
         })
 
@@ -1232,11 +1345,12 @@ export class SenderTests extends AITestClass {
                 };
                 try {
                     this._sender.processTelemetry(telemetryItem, null);
+                    this._sender.processTelemetry(telemetryItem, null);
                 } catch(e) {
                     QUnit.assert.ok(false);
                 }
 
-                QUnit.assert.equal(true, loggerSpy.calledOnce);
+                QUnit.assert.equal(true, loggerSpy.called);
                 this.clock.tick(1);
                 QUnit.assert.ok(sendNotifications.length === 1);
                 QUnit.assert.ok(sendNotifications[0].sendReason === SendRequestReason.MaxBatchSize);
@@ -1573,6 +1687,54 @@ export class SenderTests extends AITestClass {
 
                 QUnit.assert.equal(1, sendNotifications.length);
                 QUnit.assert.equal(SendRequestReason.MaxBatchSize, sendNotifications[0].sendReason);
+            }
+        });
+
+        this.testCase({
+            name: "Channel Config: Process telemetry when offline and exceeding the batch size limits",
+            useFakeTimers: true,
+            test: () => {
+                const maxBatchSizeInBytes = 1024;
+                let core = new AppInsightsCore();
+                
+                this._sender.initialize(
+                    {
+                        instrumentationKey: 'abc',
+                        maxBatchInterval: 123,
+                        maxBatchSizeInBytes: maxBatchSizeInBytes,
+                        endpointUrl: 'https://example.com',
+                        extensionConfig: {
+                        }
+                        
+                    }, core, []
+                );
+                
+                const triggerSendSpy = this.sandbox.spy(this._sender, "triggerSend");
+                const telemetryItem: ITelemetryItem = {
+                    name: 'fake item with some really long name to take up space quickly',
+                    iKey: 'iKey',
+                    baseType: 'some type',
+                    baseData: {}
+                };
+
+                // Act - Go offline
+                const offlineEvent = new Event('offline');
+                window.dispatchEvent(offlineEvent);
+
+                // Keep sending events until the max payload size is exceeded
+                while (!triggerSendSpy.called && this._sender._buffer.size() < maxBatchSizeInBytes) {
+                    try {
+                        this._sender.processTelemetry(telemetryItem, null);
+                    } catch(e) {
+                        QUnit.assert.ok(false);
+                    }
+                }
+
+                QUnit.assert.equal(false, triggerSendSpy.called);
+
+                this.clock.tick(1);
+
+                QUnit.assert.equal(false, triggerSendSpy.called);
             }
         });
 

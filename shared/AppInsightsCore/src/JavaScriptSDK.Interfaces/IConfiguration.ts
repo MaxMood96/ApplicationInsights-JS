@@ -1,11 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-import { ITelemetryPlugin } from "./ITelemetryPlugin";
+import { IAppInsightsCore } from "./IAppInsightsCore";
 import { IChannelControls } from "./IChannelControls";
 import { ICookieMgrConfig } from "./ICookieMgr";
 import { INotificationManager } from "./INotificationManager";
 import { IPerfManager } from "./IPerfManager";
-import { IAppInsightsCore } from "./IAppInsightsCore";
+import { ITelemetryPlugin } from "./ITelemetryPlugin";
 
 "use strict";
 
@@ -24,7 +24,11 @@ export interface IConfiguration {
     connectionString?: string;
 
     /**
-     * Polling interval (in ms) for internal logging queue
+     * Set the timer interval (in ms) for internal logging queue, this is the
+     * amount of time to wait after logger.queue messages are detected to be sent.
+     * Note: since 2.8.13 and 3.0.1 the diagnostic logger timer is a normal timeout timer
+     * and not an interval timer. So this now represents the timer "delay" and not
+     * the frequency at which the events are sent.
      */
     diagnosticLogInterval?: number;
 
@@ -58,6 +62,11 @@ export interface IConfiguration {
      * 2: logs to iKey: severity >= WARNING
      */
     loggingLevelTelemetry?: number
+
+    /**
+     * If enabled, uncaught exceptions will be thrown to help with debugging
+     */
+    enableDebug?: boolean;
 
     /**
      * If enabled, uncaught exceptions will be thrown to help with debugging
@@ -167,4 +176,11 @@ export interface IConfiguration {
      * this will not send any notifications.
      */
     disableDbgExt?: boolean;
+
+
+     /**
+     * Custom optional value that will be added as a prefix for storage name.
+     * @defaultValue undefined
+     */
+     storagePrefix?:string;
 }

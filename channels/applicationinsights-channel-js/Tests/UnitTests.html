@@ -5,18 +5,17 @@
     <meta charset="utf-8">
     <meta http-equiv="Cache-control" content="no-Cache" />
     <title>Tests for Application Insights JavaScript API</title>
-    <link rel="stylesheet" href="../../../common/Tests//External/qunit-2.9.1.css">
+    <link rel="stylesheet" href="../../../common/Tests/External/qunit-2.9.3.css">
     <!-- <script src="../../../common/Tests/External/sinon-7.3.1.js"></script> -->
     <script src="../../../common/Tests/External/require-2.3.6.js"></script>
     <script src="../../../common/Tests/Selenium/ModuleLoader.js"></script>
-    <script src="../../../common/Tests/Selenium/SimpleSyncPromise.js"></script>    
     <script>
         var modules = new ModuleLoader({
             baseUrl: '../',
             paths: {
-                qunit: "../../common/Tests/External/qunit-1.23.1",
+                qunit: "../../common/Tests/External/qunit-2.9.3",
                 sinon: "../../common/Tests/External/sinon-7.3.1",
-                "whatwg-fetch": "../../common/Tests/External/whatwg-fetch.3.0.0"
+                "whatwg-fetch": "../../common/Tests/External/whatwg-fetch.3.6.2"
             }
         });
 
@@ -25,22 +24,16 @@
         modules.add("sinon");
 
         loadFetchModule(modules, "whatwg-fetch");
-        loadCommonModules(modules);
+        loadCommonModules(modules, function() {
+            var testModule = modules.add("Tests/Unit/src/aichannel.tests", "./Unit/dist/aichannel.tests.js");
+            testModule.run = function (tests) {
+                console && console.log("Starting tests");
+                QUnit.start();
+                tests.runTests();
+            };
 
-        // Load Core
-        modules.add("@microsoft/applicationinsights-core-js", "./node_modules/@microsoft/applicationinsights-core-js/browser/applicationinsights-core-js");
-
-        // Load Common
-        modules.add("@microsoft/applicationinsights-common", "./node_modules/@microsoft/applicationinsights-common/browser/applicationinsights-common");
-
-        var testModule = modules.add("Tests/Unit/src/aichannel.tests", "./Unit/dist/aichannel.tests.js");
-        testModule.run = function (tests) {
-            console && console.log("Starting tests");
-            QUnit.start();
-            tests.runTests();
-        };
-
-        modules.run();
+            modules.run();
+        });
     </script>
 </head>
 

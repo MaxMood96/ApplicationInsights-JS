@@ -4,7 +4,8 @@
 */
 
 import {
-    _InternalMessageId, _eInternalMessageId, arrForEach, createEnumStyle, hasDocument, hasOwnProperty, isNullOrUndefined, objExtend
+    _InternalMessageId, _eInternalMessageId, arrForEach, createEnumStyle, getDocument, hasDocument, hasOwnProperty, isNullOrUndefined,
+    objExtend
 } from "@microsoft/applicationinsights-core-js";
 import { IClickAnalyticsConfiguration } from "../Interfaces/Datamodel";
 
@@ -285,7 +286,7 @@ export function mergeConfig(overrideConfig: IClickAnalyticsConfiguration): IClic
         pageTags: {},
         // overrideValues to use instead of collecting automatically
         coreData: {
-            referrerUri: hasDocument ? document.referrer : "",
+            referrerUri: hasDocument() ? getDocument().referrer : "",
             requestUri: "",
             pageName: "",
             pageType: ""
@@ -316,8 +317,9 @@ export function mergeConfig(overrideConfig: IClickAnalyticsConfiguration): IClic
         if(isValueAssigned(overrideConfig.dataTags)) {
             overrideConfig.dataTags.customDataPrefix = validateContentNamePrefix(overrideConfig, DEFAULT_DATA_PREFIX) ? overrideConfig.dataTags.customDataPrefix : DEFAULT_DATA_PREFIX;
         }
-        return objExtend(true, defaultConfig, overrideConfig);
     }
+
+    return objExtend(true, defaultConfig, overrideConfig || {});
 }
 
 export function BehaviorMapValidator (map: any) {

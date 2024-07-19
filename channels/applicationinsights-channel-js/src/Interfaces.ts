@@ -1,3 +1,5 @@
+import { IStorageBuffer } from "@microsoft/applicationinsights-common";
+
 export interface ISenderConfig {
     /**
      * The url to which payloads will be sent
@@ -28,6 +30,12 @@ export interface ISenderConfig {
      * Store a copy of a send buffer in the session storage
      */
     enableSessionStorageBuffer: () => boolean;
+
+    /**
+     * Specify the storage buffer type implementation.
+     * @since 2.8.12
+     */
+    bufferOverride: () => IStorageBuffer | false;
 
     /**
      * Is retry handler disabled.
@@ -77,6 +85,11 @@ export interface ISenderConfig {
      * (Optional) The number of events that can be kept in memory before the SDK starts to drop events. By default, this is 10,000.
      */
     eventsLimitInMem: () => number;
+
+    /**
+     * (Optional) The specific error codes that will cause a retry of sending data to the backend.
+     */
+    retryCodes: () => number[];
 }
 
 export interface IBackendResponse {

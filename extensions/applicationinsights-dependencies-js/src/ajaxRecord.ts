@@ -240,7 +240,7 @@ export class ajaxRecord {
 
     public xhrMonitoringState: XHRMonitoringState;
 
-    // <summary>Determines whether or not JavaScript exception occured in xhr.onreadystatechange code. 1 if occured, otherwise 0.</summary>
+    // <summary>Determines whether or not JavaScript exception occurred in xhr.onreadystatechange code. 1 if occurred, otherwise 0.</summary>
     public clientFailure: number;
 
     /**
@@ -335,9 +335,13 @@ export class ajaxRecord {
                     duration: self.ajaxTotalDuration,
                     success: (+(self.status)) >= 200 && (+(self.status)) < 400,
                     responseCode: (+(self.status)),
-                    method: self.method,
                     [STR_PROPERTIES]: { HttpMethod: self.method }
                 } as IDependencyTelemetry;
+
+                let props = dependency[STR_PROPERTIES];
+                if (self.aborted) {
+                    props.aborted = true;
+                }
 
                 if (self.requestSentTime) {
                     // Set the correct dependency start time
@@ -350,7 +354,6 @@ export class ajaxRecord {
         
                 if (enableRequestHeaderTracking) {
                     if (objKeys(self.requestHeaders).length > 0) {
-                        let props = dependency.properties = dependency.properties || {};
                         props.requestHeaders = self.requestHeaders;
                     }
                 }
@@ -367,19 +370,21 @@ export class ajaxRecord {
         
                         if (response.headerMap) {
                             if (objKeys(response.headerMap).length > 0) {
-                                let props = dependency.properties = dependency.properties || {};
                                 props.responseHeaders = response.headerMap;
                             }
                         }
         
-                        if (self.errorStatusText && self.status >= 400) {
-                            const responseType = response.type;
-                            let props = dependency.properties = dependency.properties || {};
-                            if (responseType === "" || responseType === "text") {
-                                props.responseText = response.responseText ? response.statusText + " - " + response[strResponseText] : response.statusText;
-                            }
-                            if (responseType === "json") {
-                                props.responseText = response.response ? response.statusText + " - " + JSON.stringify(response.response) : response.statusText;
+                        if (self.errorStatusText) {
+                            if (self.status >= 400) {
+                                const responseType = response.type;
+                                if (responseType === "" || responseType === "text") {
+                                    props.responseText = response.responseText ? response.statusText + " - " + response[strResponseText] : response.statusText;
+                                }
+                                if (responseType === "json") {
+                                    props.responseText = response.response ? response.statusText + " - " + JSON.stringify(response.response) : response.statusText;
+                                }
+                            } else if (self.status === 0) {
+                                props.responseText = response.statusText || "";
                             }
                         }
                     }

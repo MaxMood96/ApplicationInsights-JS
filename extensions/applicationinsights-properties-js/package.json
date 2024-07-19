@@ -1,6 +1,6 @@
 {
     "name": "@microsoft/applicationinsights-properties-js",
-    "version": "2.8.9",
+    "version": "2.8.18",
     "description": "Microsoft Application Insights properties (Part A) plugin",
     "homepage": "https://github.com/microsoft/ApplicationInsights-JS#readme",
     "author": "Microsoft Application Insights Team",
@@ -23,18 +23,19 @@
         "dtsgen": "api-extractor run --local && node ../../scripts/dtsgen.js \"Microsoft Application Insights properties plugin\"",
         "sri": "node ../../tools/subResourceIntegrity/generateIntegrityFile.js",
         "ai-min": "grunt properties-min",
-        "ai-restore": "grunt properties-restore"
+        "ai-restore": "grunt properties-restore",
+        "npm-pack": "npm pack"
     },
     "devDependencies": {
         "@microsoft/ai-test-framework": "0.0.1",
         "@microsoft/applicationinsights-rollup-plugin-uglify3-js": "1.0.0",
         "@microsoft/applicationinsights-rollup-es3": "1.1.3",
         "@microsoft/api-extractor": "^7.18.1",
-        "typescript": "^4.3.4",
+        "typescript": "^4.9.3",
         "tslib": "^2.0.0",
         "grunt": "^1.5.3",
         "grunt-cli": "^1.4.3",
-        "grunt-contrib-qunit": "^5.0.1",
+        "grunt-contrib-qunit": "^6.2.1",
         "@nevware21/grunt-ts-plugin": "^0.4.3",
         "@nevware21/grunt-eslint-ts": "^0.2.2",
         "globby": "^11.0.0",
@@ -52,10 +53,13 @@
         "tslib": "*"
     },
     "dependencies": {
-        "@microsoft/dynamicproto-js": "^1.1.7",
+        "@microsoft/dynamicproto-js": "^1.1.11",
         "@microsoft/applicationinsights-shims": "2.0.2",
-        "@microsoft/applicationinsights-core-js": "2.8.9",
-        "@microsoft/applicationinsights-common": "2.8.9"
+        "@microsoft/applicationinsights-core-js": "2.8.18",
+        "@microsoft/applicationinsights-common": "2.8.18"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "publishConfig": {
+        "tag": "release2"
+    }
 }

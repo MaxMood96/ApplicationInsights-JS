@@ -2,7 +2,8 @@
 
 # Microsoft Application Insights JavaScript SDK - Core
 
-[![Build Status](https://travis-ci.org/microsoft/applicationinsights-core-js.svg?branch=master)](https://travis-ci.org/microsoft/applicationinsights-core-js) [![Build status](https://dev.azure.com/mseng/AppInsights/_apis/build/status/AppInsights%20-%20DevTools/1DS%20JavaScript%20SDK%20-%20Core)](https://dev.azure.com/mseng/AppInsights/_build/latest?definitionId=7605)
+![GitHub Workflow Status (main)](https://img.shields.io/github/actions/workflow/status/microsoft/ApplicationInsights-JS/ci.yml)
+[![npm version](https://badge.fury.io/js/%40microsoft%2Fapplicationinsights-core-js.svg)](https://badge.fury.io/js/%40microsoft%2Fapplicationinsights-core-js)
 
 Core SDK layer for next version of application insights javascript SDK.
 

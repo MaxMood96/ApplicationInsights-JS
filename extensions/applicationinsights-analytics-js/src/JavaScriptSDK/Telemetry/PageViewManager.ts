@@ -11,6 +11,23 @@ import {
 } from "@microsoft/applicationinsights-core-js";
 import { PageViewPerformanceManager } from "./PageViewPerformanceManager";
 
+declare let WorkerGlobalScope: any;
+declare let self: any;
+
+let _isWebWorker: boolean = null;
+
+function isWebWorker() {
+    if (_isWebWorker == null) {
+        try {
+            _isWebWorker = !!(self && self instanceof WorkerGlobalScope);
+        } catch(e) {
+            _isWebWorker = false;
+        }
+    }
+
+    return _isWebWorker;
+}
+
 /**
  * Internal interface to pass appInsights object to subcomponents without coupling
  */
@@ -31,7 +48,7 @@ export class PageViewManager {
         pageViewPerformanceManager: PageViewPerformanceManager) {
 
         dynamicProto(PageViewManager, this, (_self) => {
-            let intervalHandle: any = null;
+            let queueTimer: any = null;
             let itemQueue: Array<() => boolean> = [];
             let pageViewPerformanceSent: boolean = false;
             let _logger: IDiagnosticLogger;
@@ -46,11 +63,10 @@ export class PageViewManager {
                 }
             }
         
-            function _addQueue(cb:() => boolean) {
-                itemQueue.push(cb);
-    
-                if (!intervalHandle) {
-                    intervalHandle = setInterval((() => {
+            function _startTimer() {
+                if (!queueTimer) {
+                    queueTimer = setTimeout((() => {
+                        queueTimer = null;
                         let allItems = itemQueue.slice(0);
                         let doFlush = false;
                         itemQueue = [];
@@ -63,9 +79,8 @@ export class PageViewManager {
                             }
                         });
         
-                        if (itemQueue.length === 0) {
-                            clearInterval(intervalHandle);
-                            intervalHandle = null;
+                        if (itemQueue.length > 0) {
+                            _startTimer();
                         }
     
                         if (doFlush) {
@@ -74,6 +89,12 @@ export class PageViewManager {
                         }
                     }), 100);
                 }
+            }
+
+            function _addQueue(cb:() => boolean) {
+                itemQueue.push(cb);
+    
+                _startTimer();
             }
 
             _self.trackPageView = (pageView: IPageViewTelemetry, customProperties?: { [key: string]: any })  => {
@@ -99,11 +120,13 @@ export class PageViewManager {
                     );
                     _flushChannels(true);
         
-                    // no navigation timing (IE 8, iOS Safari 8.4, Opera Mini 8 - see http://caniuse.com/#feat=nav-timing)
-                    _throwInternal(_logger,
-                        eLoggingSeverity.WARNING,
-                        _eInternalMessageId.NavigationTimingNotSupported,
-                        "trackPageView: navigation timing API used for calculation of page duration is not supported in this browser. This page view will be collected without duration and timing info.");
+                    if (!isWebWorker()) {
+                        // no navigation timing (IE 8, iOS Safari 8.4, Opera Mini 8 - see http://caniuse.com/#feat=nav-timing)
+                        _throwInternal(_logger,
+                            eLoggingSeverity.WARNING,
+                            _eInternalMessageId.NavigationTimingNotSupported,
+                            "trackPageView: navigation timing API used for calculation of page duration is not supported in this browser. This page view will be collected without duration and timing info.");
+                    }
         
                     return;
                 }
@@ -208,9 +231,9 @@ export class PageViewManager {
             };
 
             _self.teardown = (unloadCtx?: IProcessTelemetryUnloadContext, unloadState?: ITelemetryUnloadState) => {
-                if (intervalHandle) {
-                    clearInterval(intervalHandle);
-                    intervalHandle = null;
+                if (queueTimer) {
+                    clearTimeout(queueTimer);
+                    queueTimer = null;
 
                     let allItems = itemQueue.slice(0);
                     let doFlush = false;

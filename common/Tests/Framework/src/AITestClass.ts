@@ -166,6 +166,10 @@ export class AITestClass {
      * This is the final step before the next test is executed
      */
     public testCleanup() {
+        let storage: Storage = sessionStorage;
+        if (storage) {
+            storage.clear();
+        }
     }
 
     /** Method in which test class instances should call this.testCase(...) to register each of this suite's tests. */
@@ -265,7 +269,6 @@ export class AITestClass {
 
             // Run the test.
             try {
-                let self = this;
                 let testComplete = false;
                 let timeOutTimer: any = null;
                 let stepIndex = 0;
@@ -426,7 +429,7 @@ export class AITestClass {
                     self._assertHooksRemoved();
                 }
 
-                AITestClass.currentTestClass._testCompleted(failed);
+                AITestClass.currentTestClass && AITestClass.currentTestClass._testCompleted(failed);
                 done();
             }
 
@@ -1126,7 +1129,16 @@ export class AITestClass {
                 if (autoRespond && xhr && xhr.url && xhr.method) {
                     AITestClass.orgSetTimeout && AITestClass.orgSetTimeout(() => {
                         if (AITestClass.currentTestInfo && xhr && _self._xhrRequests && _self._xhrRequests.indexOf(xhr) !== -1) {
-                            xhr.respond(200, {}, "");
+                            var theResponse: any;
+                            if (xhr.url.endsWith("/v2/track")) {
+                                theResponse = {
+                                    itemsReceived: 1,
+                                    itemsAccepted: 1,
+                                    errors: [],
+                                    appId: "00000000-0000-0000-0000-000000000000"
+                                };
+                            }
+                            xhr.respond(200, {}, (theResponse && JSON.stringify(theResponse)) || "");
                         }
                     }, 5);
                 }

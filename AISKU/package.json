@@ -1,6 +1,6 @@
 {
     "name": "@microsoft/applicationinsights-web",
-    "version": "2.8.9",
+    "version": "2.8.18",
     "description": "Microsoft Application Insights JavaScript SDK - Web",
     "homepage": "https://github.com/microsoft/ApplicationInsights-JS#readme",
     "author": "Microsoft Application Insights Team",
@@ -27,15 +27,7 @@
         "sri": "node ../tools/subResourceIntegrity/generateIntegrityFile.js",
         "ai-min": "grunt aisku-min",
         "ai-restore": "grunt aisku-restore",
-        "nightwatch:chrome": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env chrome",
-        "nightwatch:firefox": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env firefox",
-        "nightwatch:edge": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env edge",
-        "nightwatch:ie8": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env ie8",
-        "nightwatch:ie9": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env ie9",
-        "nightwatch:ie10": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env ie10",
-        "nightwatch:ie11": "nightwatch -c Tests/nightwatch/nightwatch.json Tests/nightwatch/run_nightwatch.js --env ie11",
-        "nightwatch": "start node Tests/nightwatch/serve_nightwatch.js && npx concurrently \"npm run nightwatch:chrome\" \"npm run nightwatch:ie11\" \"npm run nightwatch:ie10\" && npm run nightwatch:done || npm run nightwatch:done",
-        "nightwatch:done": "curl http://localhost:8000/_done"
+        "npm-pack": "npm pack"
     },
     "devDependencies": {
         "@microsoft/ai-test-framework": "0.0.1",
@@ -46,7 +38,7 @@
         "finalhandler": "^1.1.1",
         "grunt": "^1.5.3",
         "grunt-cli": "^1.4.3",
-        "grunt-contrib-qunit": "^5.0.1",
+        "grunt-contrib-qunit": "^6.2.1",
         "@nevware21/grunt-ts-plugin": "^0.4.3",
         "@nevware21/grunt-eslint-ts": "^0.2.2",
         "globby": "^11.0.0",
@@ -59,21 +51,24 @@
         "rollup": "^2.32.0",
         "selenium-server-standalone-jar": "^3.141.5",
         "serve-static": "^1.13.2",
-        "typescript": "^4.3.4",
+        "typescript": "^4.9.3",
         "tslib": "^2.0.0"
     },
     "peerDependencies": {
         "tslib": "*"
     },
     "dependencies": {
-        "@microsoft/dynamicproto-js": "^1.1.7",
+        "@microsoft/dynamicproto-js": "^1.1.11",
         "@microsoft/applicationinsights-shims": "2.0.2",
-        "@microsoft/applicationinsights-analytics-js": "2.8.9",
-        "@microsoft/applicationinsights-channel-js": "2.8.9",
-        "@microsoft/applicationinsights-common": "2.8.9",
-        "@microsoft/applicationinsights-core-js": "2.8.9",
-        "@microsoft/applicationinsights-dependencies-js": "2.8.9",
-        "@microsoft/applicationinsights-properties-js": "2.8.9"
+        "@microsoft/applicationinsights-analytics-js": "2.8.18",
+        "@microsoft/applicationinsights-channel-js": "2.8.18",
+        "@microsoft/applicationinsights-common": "2.8.18",
+        "@microsoft/applicationinsights-core-js": "2.8.18",
+        "@microsoft/applicationinsights-dependencies-js": "2.8.18",
+        "@microsoft/applicationinsights-properties-js": "2.8.18"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "publishConfig": {
+        "tag": "release2"
+    }
 }
