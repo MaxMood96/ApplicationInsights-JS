@@ -45,7 +45,7 @@
         "rollup-plugin-cleanup": "^3.2.1",
         "rollup": "^2.32.0",
         "qunit": "^2.11.2",
-        "sinon": "^7.3.1"
+        "sinon": "^19.0.0"
     },
     "peerDependencies": {
         "tslib": "*"
